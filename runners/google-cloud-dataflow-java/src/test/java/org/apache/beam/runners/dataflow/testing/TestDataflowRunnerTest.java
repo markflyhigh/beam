@@ -17,6 +17,7 @@
  */
 package org.apache.beam.runners.dataflow.testing;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
@@ -46,6 +47,8 @@ import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.TestPipelineOptions;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.util.GcsUtil;
+import org.apache.beam.sdk.util.IOChannelFactory;
+import org.apache.beam.sdk.util.IOChannelUtils;
 import org.apache.beam.sdk.util.NoopPathValidator;
 import org.apache.beam.sdk.util.TestCredential;
 import org.apache.beam.sdk.util.Transport;
@@ -62,11 +65,16 @@ import com.google.api.services.dataflow.model.JobMetrics;
 import com.google.api.services.dataflow.model.MetricStructuredName;
 import com.google.api.services.dataflow.model.MetricUpdate;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+import com.google.common.io.CharStreams;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+import org.hamcrest.TypeSafeMatcher;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.junit.Before;
@@ -80,10 +88,18 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.math.BigDecimal;
+import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 /** Tests for {@link TestDataflowRunner}. */
 @RunWith(JUnit4.class)
@@ -446,7 +462,38 @@ public class TestDataflowRunnerTest {
 
     TestDataflowRunner runner = (TestDataflowRunner) p.getRunner();
     p.getOptions().as(TestPipelineOptions.class)
-        .setOnSuccessMatcher(new TestSuccessMatcher(mockJob, 1));
+        .setOnSuccessMatchers(new ArrayList<SerializableMatcher>(
+            Arrays.asList(new TestSuccessMatcher(mockJob, 1))));
+
+    when(request.execute()).thenReturn(
+        generateMockMetricResponse(true /* success */, true /* tentative */));
+    runner.run(p, mockRunner);
+  }
+
+  @Test
+  public void testBatchOnSuccessMatchersWhenPipelineSucceeds() throws Exception {
+    Pipeline p = TestPipeline.create(options);
+    PCollection<Integer> pc = p.apply(Create.of(1, 2, 3));
+    PAssert.that(pc).containsInAnyOrder(1, 2, 3);
+
+    final DataflowPipelineJob mockJob = Mockito.mock(DataflowPipelineJob.class);
+    when(mockJob.getState()).thenReturn(State.DONE);
+    when(mockJob.getProjectId()).thenReturn("test-project");
+    when(mockJob.getJobId()).thenReturn("test-job");
+
+    DataflowRunner mockRunner = Mockito.mock(DataflowRunner.class);
+    when(mockRunner.run(any(Pipeline.class))).thenReturn(mockJob);
+
+    TestDataflowRunner runner = (TestDataflowRunner) p.getRunner();
+
+    ArrayList<SerializableMatcher> list = new ArrayList<>();
+    list.add(new TestSuccessMatcher(mockJob, 1));
+    list.add(new AlwaysSuccessMatcher());
+//    list.add(new WordCountOnSuccessMatcher(
+//        "/tmp/WordCountIT-2016-08-02-14-34-51-014/output/results-00000-of-00001"));
+//    list.add(new TestFailureMatcher());
+    p.getOptions().as(TestPipelineOptions.class)
+        .setOnSuccessMatchers(list);
 
     when(request.execute()).thenReturn(
         generateMockMetricResponse(true /* success */, true /* tentative */));
@@ -470,7 +517,8 @@ public class TestDataflowRunnerTest {
 
     TestDataflowRunner runner = (TestDataflowRunner) p.getRunner();
     p.getOptions().as(TestPipelineOptions.class)
-        .setOnSuccessMatcher(new TestSuccessMatcher(mockJob, 1));
+        .setOnSuccessMatchers(new ArrayList<SerializableMatcher>(
+            Arrays.asList(new TestSuccessMatcher(mockJob, 1))));
 
     when(mockJob.waitUntilFinish(any(Duration.class), any(JobMessagesHandler.class)))
         .thenReturn(State.DONE);
@@ -496,7 +544,8 @@ public class TestDataflowRunnerTest {
 
     TestDataflowRunner runner = (TestDataflowRunner) p.getRunner();
     p.getOptions().as(TestPipelineOptions.class)
-        .setOnSuccessMatcher(new TestFailureMatcher());
+        .setOnSuccessMatchers(new ArrayList<SerializableMatcher>(
+            Arrays.asList(new TestFailureMatcher())));
 
     when(request.execute()).thenReturn(
         generateMockMetricResponse(false /* success */, true /* tentative */));
@@ -527,8 +576,8 @@ public class TestDataflowRunnerTest {
 
     TestDataflowRunner runner = (TestDataflowRunner) p.getRunner();
     p.getOptions().as(TestPipelineOptions.class)
-        .setOnSuccessMatcher(new TestFailureMatcher());
-
+        .setOnSuccessMatchers(new ArrayList<SerializableMatcher>(
+            Arrays.asList(new TestFailureMatcher())));
     when(mockJob.waitUntilFinish(any(Duration.class), any(JobMessagesHandler.class)))
         .thenReturn(State.FAILED);
 
@@ -542,6 +591,17 @@ public class TestDataflowRunnerTest {
       return;
     }
     fail("Expected an exception on pipeline failure.");
+  }
+
+  static class AlwaysSuccessMatcher extends TypeSafeMatcher<PipelineResult>
+      implements SerializableMatcher<PipelineResult> {
+    @Override
+    protected boolean matchesSafely(PipelineResult pipelineResult) {
+      return true;
+    }
+    @Override
+    public void describeTo(Description description) {
+    }
   }
 
   static class TestSuccessMatcher extends BaseMatcher<PipelineResult> implements
@@ -584,6 +644,89 @@ public class TestDataflowRunnerTest {
 
     @Override
     public void describeTo(Description description) {
+    }
+  }
+
+  static class WordCountOnSuccessMatcher extends TypeSafeMatcher<PipelineResult>
+      implements SerializableMatcher<PipelineResult> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(WordCountOnSuccessMatcher.class);
+
+    private static final String EXPECTED_CHECKSUM = "8ae94f799f97cfd1cb5e8125951b32dfb52e1f12";
+    private String actualChecksum;
+
+    private final String outputPath;
+
+    WordCountOnSuccessMatcher(String outputPath) {
+      checkArgument(
+          !Strings.isNullOrEmpty(outputPath),
+          "Expected valid output path, but received %s", outputPath);
+
+      this.outputPath = outputPath;
+    }
+
+    @Override
+    protected boolean matchesSafely(PipelineResult pResult) {
+      try {
+        // Load output data
+        List<String> outputs = readLines(outputPath);
+
+        // Verify outputs. Checksum is computed using SHA-1 algorithm
+        actualChecksum = hashing(outputs);
+        LOG.info("Generated checksum for output data: {}", actualChecksum);
+
+        return actualChecksum.equals(EXPECTED_CHECKSUM);
+      } catch (IOException e) {
+        throw new RuntimeException(
+            String.format("Failed to read from path: %s", outputPath));
+      }
+    }
+
+    private List<String> readLines(String path) throws IOException {
+      List<String> readData = new ArrayList<>();
+
+      IOChannelFactory factory = IOChannelUtils.getFactory(path);
+
+      // Match inputPath which may contains glob
+      Collection<String> files = factory.match(path);
+
+      // Read data from file paths
+      int i = 0;
+      for (String file : files) {
+        try (Reader reader =
+                 Channels.newReader(factory.open(file), StandardCharsets.UTF_8.name())) {
+          List<String> lines = CharStreams.readLines(reader);
+          readData.addAll(lines);
+          LOG.info(
+              "[{} of {}] Read {} lines from file: {}", i, files.size() - 1, lines.size(), file);
+        }
+        i++;
+      }
+      return readData;
+    }
+
+    private String hashing(List<String> strs) {
+      List<HashCode> hashCodes = new ArrayList<>();
+      for (String str : strs) {
+        hashCodes.add(Hashing.sha1().hashString(str, StandardCharsets.UTF_8));
+      }
+      return Hashing.combineUnordered(hashCodes).toString();
+    }
+
+    @Override
+    public void describeTo(Description description) {
+      description
+          .appendText("Expected checksum is (")
+          .appendText(EXPECTED_CHECKSUM)
+          .appendText(")");
+    }
+
+    @Override
+    protected void describeMismatchSafely(PipelineResult pResult, Description description) {
+      description
+          .appendText("was (")
+          .appendText(actualChecksum)
+          .appendText(")");
     }
   }
 }

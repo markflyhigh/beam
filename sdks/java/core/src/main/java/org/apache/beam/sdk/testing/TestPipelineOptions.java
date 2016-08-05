@@ -25,6 +25,9 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
 /**
  * {@link TestPipelineOptions} is a set of options for test pipelines.
  *
@@ -38,9 +41,10 @@ public interface TestPipelineOptions extends PipelineOptions {
   SerializableMatcher<PipelineResult> getOnCreateMatcher();
   void setOnCreateMatcher(SerializableMatcher<PipelineResult> value);
 
-  @Default.InstanceFactory(AlwaysPassMatcherFactory.class)
-  SerializableMatcher<PipelineResult> getOnSuccessMatcher();
-  void setOnSuccessMatcher(SerializableMatcher<PipelineResult> value);
+//  @Default.InstanceFactory(AlwaysPassMatcherFactory.class)
+  @Default.InstanceFactory(AlwaysPassMarchersFactory.class)
+  ArrayList<SerializableMatcher>  getOnSuccessMatchers();
+  void setOnSuccessMatchers(ArrayList<SerializableMatcher> value);
 
   /**
    * Factory for {@link PipelineResult} matchers which always pass.
@@ -65,6 +69,16 @@ public interface TestPipelineOptions extends PipelineOptions {
 
     @Override
     public void describeTo(Description description) {
+    }
+  }
+
+  /**
+   * Factory to create list of matchers.
+   */
+  class AlwaysPassMarchersFactory implements DefaultValueFactory<ArrayList<SerializableMatcher>> {
+    @Override
+    public ArrayList<SerializableMatcher> create(PipelineOptions options) {
+      return new ArrayList<SerializableMatcher>(Arrays.asList(new AlwaysPassMatcher()));
     }
   }
 }

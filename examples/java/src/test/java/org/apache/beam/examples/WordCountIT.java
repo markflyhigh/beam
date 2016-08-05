@@ -73,9 +73,31 @@ public class WordCountIT {
         String.format("WordCountIT-%tF-%<tH-%<tM-%<tS-%<tL", new Date()),
         "output",
         "results"));
-    options.setOnSuccessMatcher(new WordCountOnSuccessMatcher(options.getOutput() + "*"));
 
-    WordCount.main(TestPipeline.convertToArgs(options));
+    ArrayList<SerializableMatcher> list = new ArrayList<>();
+    list.add(new WordCountOnSuccessMatcher(options.getOutput() + "*"));
+    list.add(new AlwaysPassMatcher());
+    options.setOnSuccessMatchers(list);
+
+    try {
+      WordCount.main(TestPipeline.convertToArgs(options));
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Always pass matcher.
+   */
+  static class AlwaysPassMatcher extends TypeSafeMatcher<PipelineResult>
+      implements SerializableMatcher<PipelineResult> {
+    @Override
+    protected boolean matchesSafely(PipelineResult pipelineResult) {
+      return true;
+    }
+    @Override
+    public void describeTo(Description description) {
+    }
   }
 
   /**

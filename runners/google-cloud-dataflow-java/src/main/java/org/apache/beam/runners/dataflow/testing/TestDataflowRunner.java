@@ -25,10 +25,12 @@ import org.apache.beam.runners.dataflow.DataflowRunner;
 import org.apache.beam.runners.dataflow.util.MonitoringUtil;
 import org.apache.beam.runners.dataflow.util.MonitoringUtil.JobMessagesHandler;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.PipelineResult.State;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.runners.PipelineRunner;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.testing.SerializableMatcher;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.TestPipelineOptions;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -151,7 +153,10 @@ public class TestDataflowRunner extends PipelineRunner<DataflowPipelineJob> {
             ? "The dataflow did not return a failure reason."
             : messageHandler.getErrorMessage());
       } else {
-        assertThat(job, testPipelineOptions.getOnSuccessMatcher());
+//        assertThat(job, testPipelineOptions.getOnSuccessMatcher());
+        for (SerializableMatcher matcher : testPipelineOptions.getOnSuccessMatchers()) {
+          assertThat(job, matcher);
+        }
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -161,6 +166,8 @@ public class TestDataflowRunner extends PipelineRunner<DataflowPipelineJob> {
       throw new RuntimeException(e.getCause());
     } catch (IOException e) {
       throw new RuntimeException(e);
+    } catch (Exception e) {
+      e.printStackTrace();
     }
     return job;
   }
