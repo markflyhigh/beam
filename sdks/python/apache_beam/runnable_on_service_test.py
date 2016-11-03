@@ -30,17 +30,19 @@ class RunnableOnServiceTest(unittest.TestCase):
 
   @pytest.mark.RunnableOnService
   def test_first(self):
-    """Test that """
+    """Test that @RuuanbelOnService works"""
+    pass
+
+  @pytest.mark.RunnableOnService
+  def test_second(self):
+    """Test that small test pipeline can run locally or on dataflow service"""
     pipeline = TPipeline()
     pcoll = pipeline | 'label' >> Create([[1, 2, 3]])
     assert_that(pcoll, equal_to([[1, 2, 3]]))
     pipeline.run()
 
-  @pytest.mark.RunnableOnService
-  def test_second(self):
-    pass
-
   def test_third(self):
+    """Test that test without @RunableOnService label can be ignored"""
     pipeline = TPipeline()
     pcoll = pipeline | 'label' >> Create([[1, 2, 3]])
     assert_that(pcoll, equal_to([[1, 2, 3]]))

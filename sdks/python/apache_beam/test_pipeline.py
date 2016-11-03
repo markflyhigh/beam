@@ -15,7 +15,13 @@
 # limitations under the License.
 #
 
-"""Test Pipeline, only used for runnable-on-service tests"""
+"""Test Pipeline, a wrapper of Pipeline
+
+TPipeline has a functionality to parse options from command line arguments
+and build pipeline options. It's designed for tests that needs runner,
+like runnable-on-service tests and integration tests.
+
+"""
 
 import argparse
 
@@ -30,7 +36,7 @@ class TPipeline(Pipeline):
       self.options = self.test_pipeline_options()
 
   def test_pipeline_options(self):
-    """create a pipeline options from command line argument: --test_options"""
+    """Create a pipeline options from command line argument: --test_options"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_options',
                        type=str,
