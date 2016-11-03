@@ -15,21 +15,11 @@
 # limitations under the License.
 #
 
-[nosetests]
-# Allow discovery of Python test files marked executable.
-exe=True
-verbosity=2
-# TODO(silviuc): Find a way to run the remaining tests excluded here.
-#
-# The following tests are excluded because they try to load the Cython-based
-# fast_coders module which is not available when running unit tests:
-# fast_coders_test and typecoders_test.
-exclude=fast_coders_test|typecoders_test
 
-[tool:pytest]
-python_files = *_test.py
-python_class = *Test
-python_functions = test_*
-addopts = -v -s --ignore=setup.py
-markers =
-    RunnableOnService: mark a unit test that can run on cloud service
+def pytest_addoption(parser):
+  """Register command line options to pytest"""
+  parser.addoption('--test_options',
+                   nargs='?',
+                   type=str,
+                   action='store',
+                   help='providing pipeline options to run tests on service')
