@@ -30,19 +30,21 @@ from apache_beam.utils.options import PipelineOptions
 
 class TPipeline(Pipeline):
 
-  def __init__(self, runner=None, options=None, argv=None):
+  def __init__(self, runner=None, argv=None):
+    options = self.test_pipeline_options()
     super(TPipeline, self).__init__(runner, options, argv)
-    if self.options is None:
-      self.options = self.test_pipeline_options()
 
   def test_pipeline_options(self):
     """Create a pipeline options from command line argument: --test_options"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_options',
                        type=str,
-                       default='--runner DirectPipelineRunner',
                        action='store',
                        help='only run tests providing service options')
-    argv = parser.parse_args()
-    options_list = argv.test_options.split()
-    return PipelineOptions(options_list)
+    known, argv = parser.parse_known_args()
+
+    if known.test_options is None:
+      return PipelineOptions([])
+    else:
+      options_list = known.test_options.split()
+      return PipelineOptions(options_list)
