@@ -23,7 +23,7 @@ import pytest
 
 from apache_beam.transforms import Create
 from apache_beam.transforms.util import assert_that, equal_to
-from apache_beam.test_pipeline import TPipeline
+from apache_beam.test_pipeline import TestPipeline
 
 
 class RunnableOnServiceTest(unittest.TestCase):
@@ -36,14 +36,14 @@ class RunnableOnServiceTest(unittest.TestCase):
   @pytest.mark.RunnableOnService
   def test_second(self):
     """Test that small test pipeline can run locally or on dataflow service"""
-    pipeline = TPipeline()
+    pipeline = TestPipeline()
     pcoll = pipeline | 'label' >> Create([[1, 2, 3]])
     assert_that(pcoll, equal_to([[1, 2, 3]]))
     pipeline.run()
 
   def test_third(self):
     """Test that test without @RunableOnService label can be ignored"""
-    pipeline = TPipeline()
+    pipeline = TestPipeline()
     pcoll = pipeline | 'label' >> Create([[1, 2, 3]])
     assert_that(pcoll, equal_to([[1, 2, 3]]))
     pipeline.run()

@@ -28,11 +28,11 @@ import argparse
 from apache_beam.pipeline import Pipeline
 from apache_beam.utils.options import PipelineOptions
 
-class TPipeline(Pipeline):
+class TestPipeline(Pipeline):
 
   def __init__(self, runner=None, argv=None):
     options = self.test_pipeline_options()
-    super(TPipeline, self).__init__(runner, options, argv)
+    super(TestPipeline, self).__init__(runner, options, argv)
 
   def test_pipeline_options(self):
     """Create a pipeline options from command line argument: --test_options"""
