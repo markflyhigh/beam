@@ -54,7 +54,21 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
     <plugins>
+      <plugin>
+        <groupId>org.eluder.coveralls</groupId>
+        <artifactId>coveralls-maven-plugin</artifactId>
+        <version>4.3.0</version>
+        <configuration>
+          <repoToken>${env.COVERALLS_REPO_TOKEN}</repoToken>
+          <sourceEncoding>UTF-8</sourceEncoding>
+          <sourceDirectories>
+            <sourceDirectory>${project.basedir}/apache_beam</sourceDirectory>
+          </sourceDirectories>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.codehaus.gmaven</groupId>
         <artifactId>groovy-maven-plugin</artifactId>
@@ -82,6 +96,7 @@
           </execution>
         </executions>
       </plugin>
+
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -200,7 +215,7 @@
                   <executable>${python.user.base}/bin/tox</executable>
                   <arguments>
                     <argument>-e</argument>
-                    <argument>ALL</argument>
+                    <argument>coverage</argument>
                     <argument>-c</argument>
                     <argument>tox.ini</argument>
                   </arguments>
