@@ -1573,7 +1573,10 @@
           <artifactId>coveralls-maven-plugin</artifactId>
           <version>4.3.0</version>
             <configuration>
-                <repoToken>${env.COVERALLS_REPO_TOKEN}</repoToken>
+              <repoToken>${env.COVERALLS_REPO_TOKEN}</repoToken>
+              <sourceDirectories>
+                <sourceDirectory>${basedir}/sdks/python/apache_beam</sourceDirectory>
+              </sourceDirectories>
             </configuration>
         </plugin>
 
