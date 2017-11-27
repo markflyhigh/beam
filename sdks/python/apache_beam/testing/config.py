@@ -22,13 +22,13 @@ includes ValidatesRunner test and E2E integration test.
 
 """
 
-import logging
+# import logging
 
 from datetime import datetime
 
 from nose.plugins import Plugin
 
-log = logging.getLogger(__name__)
+# log = logging.getLogger(__name__)
 
 
 class BeamTestPlugin(Plugin):
@@ -63,7 +63,7 @@ class TestTimestampPlugin(Plugin):
 
   def configure(self, options, conf):
     """Configure plugin."""
-    log.info('start config.')
+    # log.info('start config.')
     super(TestTimestampPlugin, self).configure(options, conf)
     # self._add_timestamp = conf.verbosity >= 2
     self._add_timestamp = True
@@ -74,7 +74,7 @@ class TestTimestampPlugin(Plugin):
 
   def startTest(self, test):
     """Add a timestamp before test name."""
-    log.info('start test!!')
+    # log.info('start test!!')
     time_format = '%H:%M:%S.%f'
     if self._add_timestamp:
       timestamp = datetime.now().strftime(time_format)[:-3]

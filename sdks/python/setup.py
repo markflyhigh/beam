@@ -198,7 +198,8 @@ setuptools.setup(
     keywords=PACKAGE_KEYWORDS,
     entry_points={
         'nose.plugins.0.10': [
-            'beam_test_plugin = test_config:BeamTestPlugin'
+            # 'beam_test_plugin = apache_beam.testing.config:BeamTestPlugin',
+            'timestamp = test_config:TestTimestampPlugin',
     ]},
     cmdclass={
         'build_py': generate_protos_first(build_py),
