@@ -18,18 +18,61 @@
 
 from google.cloud import pubsub
 
-class PubSubClient(object):
+
+class BeamPubSubException(Exception):
+  pass
+
+
+class BeamPubSubClient(object):
 
   def __init__(self, project_id):
     self.pubsub_client = pubsub.Client(project=project_id)
     self.topics = []
     self.subs = []
 
-  def CreateTopic(self, name):
+  def create_topic(self, name):
+    """Create a new topic with given name.
+
+    Args:
+      name: A string of topic name.
+
+    Returns:
+      A string of full topic name in format of "projects/{project_id}/topics/{topic}".
+    """
+    if not name:
+      raise AttributeError('Invalid topic name: %s.', name)
+
     new_topic = self.pubsub_client.topic(name)
-    return None
+    if not self.exist_topic(new_topic):
+      new_topic.create()
+    return new_topic.full_name
 
-  def CreateSubcription(self, topic, name):
-    return None
+  def create_subcription(self, name, topic):
+    """Create a new subscription to a given topic."""
+    if not topic:
+      raise AttributeError('Invalid topic name: %s.', topic)
+    elif not self.pubsub_client.topic(topic).exists():
+      raise BeamPubSubException('Failed to create subscription %s. Topic %s does not exists. Please create topic first.', name, topic)
 
-  def 
+    new_sub = self.pubsub_client.subscription(name)
+    if new_sub.exists():
+      raise BeamPubSubException('Subscription %s already exists.', new_sub.full_name)
+
+    new_sub.create()
+    return new_sub.full_name
+
+  def delete_topic(self, topic):
+    """Delete a topic with given name."""
+
+
+  def delete_subscription(self, subscription):
+    raise NotImplementedError
+
+  def exist_topic(self, topic):
+    return False
+
+  def exist_subscription(self, subscription):
+    return False
+
+  def cleanup(self):
+    raise NotImplementedError

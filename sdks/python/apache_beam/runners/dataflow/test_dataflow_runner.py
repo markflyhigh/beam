@@ -20,6 +20,7 @@ from __future__ import print_function
 
 from apache_beam.internal import pickler
 from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import TestOptions
 from apache_beam.runners.dataflow.dataflow_runner import DataflowRunner
 
@@ -46,6 +47,11 @@ class TestDataflowRunner(DataflowRunner):
       print (
           'Found: https://console.cloud.google.com/dataflow/jobsDetail'
           '/locations/%s/jobs/%s?project=%s' % (region_id, job_id, project))
+
+    if options.view_as(StandardOptions).streaming:
+      # Termination condition for streaming pipeline.
+      return self.result
+
     self.result.wait_until_finish()
 
     if on_success_matcher:
