@@ -19,6 +19,7 @@
 
 import logging
 import unittest
+import time
 
 from hamcrest.core.core.allof import all_of
 from nose.plugins.attrib import attr
@@ -35,6 +36,8 @@ INPUT_SUB = 'markliu_input_s'
 OUTPUT_SUB = 'markliu_output_s'
 
 PS = [INPUT_TOPIC, OUTPUT_TOPIC, INPUT_SUB, OUTPUT_SUB]
+
+log = logging.getLogger(__name__)
 
 
 class StreamingWordCountIT(unittest.TestCase):
@@ -72,17 +75,33 @@ class StreamingWordCountIT(unittest.TestCase):
                   'input_topic': i_topic.full_name,
                   'output_topic': o_topic.full_name}
 
-    print('\nextra_opts: \n%s' % extra_opts)
+    print('extra_opts: \n%s' % extra_opts)
 
-    self.inject_data(i_topic)
+    self.inject_data(i_topic, 500)
 
     # Get pipeline options from command argument: --test-pipeline-options,
     # and start pipeline job by calling pipeline main function.
     streaming_wordcount.run(test_pipeline.get_full_options_as_args(**extra_opts))
 
-    
+    # Pull messages
+    messages = self.wait_for_message(i_subscription, 500)
 
+    # Verify messages
+    assert len(set(messages)) == 500
+    messages.sort()
+    for i in range(10):
+      log.info('In Subs: %d', i)
 
+    # Pull messages
+    messages = self.wait_for_message(o_subscription, 500)
+
+    # Verify messages
+    assert len(set(messages)) == 500
+    messages.sort()
+    for i in range(10):
+      log.info('Out Subs: %d', i)
+
+    log.info('Test is done.')
 
 
   def tearDown(self):
@@ -101,9 +120,23 @@ class StreamingWordCountIT(unittest.TestCase):
       else:
         print('No clean up for subscription %s.' % sub.full_name)
 
-  def inject_data(self, topic):
-    nums = ' '.join(range(0, 500))
+  def inject_data(self, topic, num_messages):
+    nums = ' '.join(map(str, range(num_messages)))
     topic.publish(nums)
+
+  def wait_for_message(self, subscription, expected_messages, max_wait_time=300):
+    total_messages = []
+    start_time = time.time()
+    while time.time() - start_time <= max_wait_time:
+      pulled = subscription.pull(max_messages=10)
+      for ack_id, message in pulled:
+        total_messages.append(message.data)
+        subscription.acknowledge([ack_id])
+
+      if len(total_messages) >= expected_messages:
+        return total_messages
+    return []
+
 
 
 if __name__ == '__main__':
