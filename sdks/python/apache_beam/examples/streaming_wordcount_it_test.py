@@ -71,19 +71,26 @@ class StreamingWordCountIT(unittest.TestCase):
 
     # Set extra options to the pipeline for test purpose
     pipeline_verifiers = [PipelineStateMatcher()]
-    extra_opts = {'on_success_matcher': all_of(*pipeline_verifiers),
+    extra_opts = {
                   'input_topic': i_topic.full_name,
-                  'output_topic': o_topic.full_name}
+                  'output_topic': o_topic.full_name,
+                  # 'on_success_matcher': all_of(*pipeline_verifiers),
+    }
 
     print('extra_opts: \n%s' % extra_opts)
-
-    self.inject_data(i_topic, 500)
 
     # Get pipeline options from command argument: --test-pipeline-options,
     # and start pipeline job by calling pipeline main function.
     streaming_wordcount.run(test_pipeline.get_full_options_as_args(**extra_opts))
 
+    # Inject data
+    # print('\nwait for 100s.')
+    # time.sleep(100)
+    print('\nstart inject data')
+    self.inject_data(i_topic, 500)
+
     # Pull messages
+    print('\nwait for message from input.')
     messages = self.wait_for_message(i_subscription, 500)
 
     # Verify messages
@@ -93,6 +100,7 @@ class StreamingWordCountIT(unittest.TestCase):
       log.info('In Subs: %d', i)
 
     # Pull messages
+    print('\nwait for message from output.')
     messages = self.wait_for_message(o_subscription, 500)
 
     # Verify messages
@@ -100,6 +108,8 @@ class StreamingWordCountIT(unittest.TestCase):
     messages.sort()
     for i in range(10):
       log.info('Out Subs: %d', i)
+
+    # Cancel streaming. (create a helper)
 
     log.info('Test is done.')
 
@@ -121,10 +131,12 @@ class StreamingWordCountIT(unittest.TestCase):
         print('No clean up for subscription %s.' % sub.full_name)
 
   def inject_data(self, topic, num_messages):
+    log.info('inject numbers to topic %s', topic.full_name)
     nums = ' '.join(map(str, range(num_messages)))
     topic.publish(nums)
 
   def wait_for_message(self, subscription, expected_messages, max_wait_time=300):
+    log.info('Start to wait for message from sub %s', subscription)
     total_messages = []
     start_time = time.time()
     while time.time() - start_time <= max_wait_time:
@@ -134,9 +146,9 @@ class StreamingWordCountIT(unittest.TestCase):
         subscription.acknowledge([ack_id])
 
       if len(total_messages) >= expected_messages:
+        log.info('%d messages are recieved. Stop waiting.', len(total_messages))
         return total_messages
     return []
-
 
 
 if __name__ == '__main__':
