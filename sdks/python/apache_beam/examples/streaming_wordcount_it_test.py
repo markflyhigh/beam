@@ -80,6 +80,11 @@ class StreamingWordCountIT(unittest.TestCase):
     # and start pipeline job by calling pipeline main function.
     streaming_wordcount.run(test_pipeline.get_full_options_as_args(**extra_opts))
 
+    
+
+
+
+
   def tearDown(self):
     self.cleanup()
 
@@ -97,7 +102,8 @@ class StreamingWordCountIT(unittest.TestCase):
         print('No clean up for subscription %s.' % sub.full_name)
 
   def inject_data(self, topic):
-
+    nums = ' '.join(range(0, 500))
+    topic.publish(nums)
 
 
 if __name__ == '__main__':
