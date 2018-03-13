@@ -72,7 +72,7 @@ class StreamingWordCountIT(unittest.TestCase):
     # Set extra options to the pipeline for test purpose
     pipeline_verifiers = [PipelineStateMatcher()]
     extra_opts = {
-                  'input_topic': i_topic.full_name,
+                  'input_sub': i_subscription.full_name,
                   'output_topic': o_topic.full_name,
                   # 'on_success_matcher': all_of(*pipeline_verifiers),
     }
