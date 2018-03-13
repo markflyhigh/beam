@@ -38,9 +38,9 @@ class TestDataflowRunner(DataflowRunner):
 
   def _is_in_terminate_state(self, job_state):
     return job_state in [
-        PipelineState.JOB_STATE_STOPPED, PipelineState.JOB_STATE_DONE,
-        PipelineState.JOB_STATE_FAILED, PipelineState.JOB_STATE_CANCELLED,
-        PipelineState.JOB_STATE_UPDATED, PipelineState.JOB_STATE_DRAINED]
+        PipelineState.STOPPED, PipelineState.DONE,
+        PipelineState.FAILED, PipelineState.CANCELLED,
+        PipelineState.UPDATED, PipelineState.DRAINED]
 
   def run_pipeline(self, pipeline):
     """Execute test pipeline and verify test matcher"""
@@ -51,7 +51,7 @@ class TestDataflowRunner(DataflowRunner):
     # send this option to remote executors.
     options.on_success_matcher = None
 
-    self.result = super(TestDataflowRunner, self).run(pipeline)
+    self.result = super(TestDataflowRunner, self).run_pipeline(pipeline)
     if self.result.has_job:
       project = pipeline._options.view_as(GoogleCloudOptions).project
       region_id = pipeline._options.view_as(GoogleCloudOptions).region
