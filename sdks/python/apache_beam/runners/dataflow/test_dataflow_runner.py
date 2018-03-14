@@ -65,7 +65,7 @@ class TestDataflowRunner(DataflowRunner):
     if not options.view_as(StandardOptions).streaming:
       self.result.wait_until_finish()
     else:
-      if not self.wait_for_running():
+      if not self.wait_for_job_running():
         return self.result
 
     print('check if matcher?')
@@ -75,7 +75,7 @@ class TestDataflowRunner(DataflowRunner):
 
     return self.result
 
-  def wait_for_running(self):
+  def wait_for_job_running(self):
     print('start wait for running.')
     if not self.result.has_job:
       raise IOError('Failed to get the Dataflow job id.')
