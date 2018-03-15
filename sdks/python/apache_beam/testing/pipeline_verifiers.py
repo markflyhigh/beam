@@ -151,3 +151,71 @@ class FileChecksumMatcher(BaseMatcher):
     mismatch_description \
       .append_text("Actual checksum is ") \
       .append_text(self.checksum)
+
+
+class PubSubMessageMatcher(BaseMatcher):
+  """Matcher that verifies messages from given subscription are expected."""
+
+  def __init__(self, subscription, expected_msg, timeout=300):
+    if not subscription:
+      raise AttributeError('Invalid subscription %s.' % subscription)
+    elif not subscription.exists():
+      raise AttributeError('Subscription %s does not exist.' %
+                           subscription.full_name)
+    if not expected_msg:
+      raise AttributeError('Invalid expected messages %s.' % expected_msg)
+
+    self.subscription = subscription
+    self.expected_msg = expected_msg
+    self.timeout = timeout
+
+  def _matches(self, pipeline_result):
+    messages = self._wait_for_message(self.subscription,
+                                      len(self.expected_msg),
+                                      self.timeout)
+
+    return self._verify(messages, self.expected_msg)
+
+  def _wait_for_message(self, subscription, expected_num, timeout):
+    print('Start pulling messages from %s' % subscription.full_name)
+    logging.debug('Start pulling messages from %s', subscription.full_name)
+    total_messages = []
+    start_time = time.time()
+    while time.time() - start_time <= timeout:
+      pulled = subscription.pull(max_messages=50)
+      for ack_id, message in pulled:
+        total_messages.append(message.data)
+        subscription.acknowledge([ack_id])
+
+      if len(total_messages) >= expected_num:
+        print('%d messages are recieved. Stop waiting.', len(total_messages))
+        return total_messages
+      if len(total_messages) % 10 == 0:
+        print('%d messages are received.' % len(total_messages))
+
+    raise RuntimeError('Timeout after %d sec. Received %d messages from %s.' %
+                       (timeout, len(total_messages), subscription.full_name))
+
+  def _verify(self, messages, expected_msg):
+    if len(messages) != len(expected_msg):
+      return False
+
+    for i in range(10):
+      print('Out Subs: %s', messages[i])
+
+    messages.sort()
+    expected_msg.sort()
+    for i in range(len(messages)):
+      if messages[i] != expected_msg[i]:
+        return False
+    return True
+
+  def describe_to(self, description):
+    description \
+      .append_text("Test pipeline expected terminated in state: ") \
+      .append_text(self.expected_state)
+
+  def describe_mismatch(self, pipeline_result, mismatch_description):
+    mismatch_description \
+      .append_text("Test pipeline job terminated in state: ") \
+      .append_text(pipeline_result.state)

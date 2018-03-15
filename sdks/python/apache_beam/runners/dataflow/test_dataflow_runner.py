@@ -19,7 +19,6 @@
 from __future__ import print_function
 
 import time
-import logging
 
 from apache_beam.internal import pickler
 from apache_beam.options.pipeline_options import GoogleCloudOptions
@@ -28,10 +27,9 @@ from apache_beam.options.pipeline_options import TestOptions
 from apache_beam.runners.dataflow.dataflow_runner import DataflowRunner
 from apache_beam.runners.runner import PipelineState
 
-log = logging.getLogger(__name__)
 __all__ = ['TestDataflowRunner']
 
-DEFAULT_STREAMING_TIMEOUT = 5 * 60
+WAIT_TIMEOUT = 5 * 60
 
 
 class TestDataflowRunner(DataflowRunner):
@@ -57,7 +55,7 @@ class TestDataflowRunner(DataflowRunner):
       region_id = pipeline._options.view_as(GoogleCloudOptions).region
       job_id = self.result.job_id()
       # TODO(markflyhigh)(BEAM-1890): Use print since Nose dosen't show logs
-      # in some cases.
+      # in some test failure cases.
       print (
           'Found: https://console.cloud.google.com/dataflow/jobsDetail'
           '/locations/%s/jobs/%s?project=%s' % (region_id, job_id, project))
@@ -65,28 +63,33 @@ class TestDataflowRunner(DataflowRunner):
     if not options.view_as(StandardOptions).streaming:
       self.result.wait_until_finish()
     else:
-      if not self.wait_for_job_running():
-        return self.result
+      # TODO: Ideally, we want to wait until workers start successfully.
+      self.wait_until_running()
 
     print('check if matcher?')
     if on_success_matcher:
       from hamcrest import assert_that as hc_assert_that
       hc_assert_that(self.result, pickler.loads(on_success_matcher))
 
+    # if not self._is_in_terminate_state(self.result.state):
+    #   self.result.cancel()
+
     return self.result
 
-  def wait_for_job_running(self):
+  def wait_until_running(self):
+    """Wait until Dataflow pipeline terminate or enter RUNNING state."""
     print('start wait for running.')
     if not self.result.has_job:
       raise IOError('Failed to get the Dataflow job id.')
 
     start_time = time.time()
-    while time.time() - start_time <= DEFAULT_STREAMING_TIMEOUT:
+    while time.time() - start_time <= WAIT_TIMEOUT:
       job_state = self.result.state
-      if self._is_in_terminate_state(job_state) or self.result.state == PipelineState.RUNNING:
-        log.info('Job is in state: %s.', job_state)
-        return True
+      if (self._is_in_terminate_state(job_state) or
+          self.result.state == PipelineState.RUNNING):
+        return job_state
       time.sleep(5)
 
-    log.info('Timeout when wait for job %s in Running state.', self.result.job_id)
-    return False
+    raise RuntimeError('Timeout after %d seconds while waiting for job %s\'s '
+                       'state in RUNNING or terminate state.',
+                       self.result.job_id)

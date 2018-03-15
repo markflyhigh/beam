@@ -135,25 +135,27 @@ def delete_files(file_paths):
 
 def wait_for_subscriptions_created(subs, timeout=60):
   """Wait for all PubSub subscriptions are created."""
-  return _wait_until_exist(subs, timeout)
+  return _wait_until_all_exist(subs, timeout)
 
 
 def wait_for_topics_created(topics, timeout=60):
   """Wait for all PubSub topics are created."""
-  return _wait_until_exist(topics, timeout)
+  return _wait_until_all_exist(topics, timeout)
 
 
-def _wait_until_exist(components, timeout):
-  wait_set = set(components)
+def _wait_until_all_exist(components, timeout):
+  need_wait = set(components)
   start_time = time.time()
   while time.time() - start_time <= timeout:
-    for c in wait_set:
-      if c.exists():
-        wait_set.remove(c)
-    if len(wait_set) == 0:
+    for c in components:
+      if c in need_wait and c.exists():
+        need_wait.remove(c)
+    if len(need_wait) == 0:
       return True
-  raise RuntimeError('Timeout %d exceeds waiting for pubsub '
-                     'topics/subscriptions.' % timeout)
+    time.sleep(2)
+
+  raise RuntimeError('Timeout after %d seconds. %d of %d topics/subscriptions '
+                     'not exist.' % (timeout, len(need_wait), len(components)))
 
 
 def cleanup_subscription(subs):
@@ -171,5 +173,6 @@ def _cleanup_pubsub(components):
     if c.exists():
       c.delete()
     else:
-      logging.debug('Skip cleanup. %s does not exist.', c.full_name)
+      logging.debug('Cannot delete topic/subscription. %s does not exist.',
+                    c.full_name)
 

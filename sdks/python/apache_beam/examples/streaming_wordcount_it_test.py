@@ -24,7 +24,7 @@ import time
 from hamcrest.core.core.allof import all_of
 from nose.plugins.attrib import attr
 
-from apache_beam.testing.pipeline_verifiers import PipelineStateMatcher
+from apache_beam.testing.pipeline_verifiers import PipelineStateMatcher, PubSubMessageMatcher
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.examples import streaming_wordcount
 from apache_beam.testing import test_utils
@@ -36,7 +36,7 @@ OUTPUT_TOPIC = 'markliu_output_t'
 INPUT_SUB = 'markliu_input_s'
 OUTPUT_SUB = 'markliu_output_s'
 
-DEFAULT_INPUT_NUMBER_LIMIT = 500
+DEFAULT_INPUT_NUMBERS = 500
 
 
 class StreamingWordCountIT(unittest.TestCase):
@@ -62,7 +62,10 @@ class StreamingWordCountIT(unittest.TestCase):
   @attr('test')
   def test_streaming_wordcount_it(self):
     # Set extra options to the pipeline for test purpose
-    pipeline_verifiers = [PipelineStateMatcher()]
+    # expected_msg = []
+    # for i in range(DEFAULT_INPUT_NUMBERS):
+    #   expected_msg.append('%d: 1' % i)
+    # pipeline_verifiers = [PubSubMessageMatcher(self.output_sub, expected_msg, 600)]
     extra_opts = {
                   'input_sub': self.input_sub.full_name,
                   'output_topic': self.output_topic.full_name,
@@ -74,23 +77,19 @@ class StreamingWordCountIT(unittest.TestCase):
     # wait until subs are available
     test_utils.wait_for_subscriptions_created([self.input_sub])
 
+    # Generate input data and inject to PubSub.
+    print('\nstart inject data')
+    self.inject_numbers(self.input_topic, DEFAULT_INPUT_NUMBERS)
+
     # Get pipeline options from command argument: --test-pipeline-options,
     # and start pipeline job by calling pipeline main function.
     streaming_wordcount.run(self.test_pipeline.get_full_options_as_args(**extra_opts))
 
-    # Generate input data and inject to PubSub.
-    print('\nstart inject data')
-    self.inject_numbers(self.input_topic, DEFAULT_INPUT_NUMBER_LIMIT)
-
     # Pull and verify PubSub messages.
     print('\nwait for message from output.')
-    messages = self.wait_for_message(self.output_sub, DEFAULT_INPUT_NUMBER_LIMIT)
+    messages = self.wait_for_message(self.output_sub, DEFAULT_INPUT_NUMBERS, 600)
 
-    if messages:
-      assert len(set(messages)) == DEFAULT_INPUT_NUMBER_LIMIT
-      messages.sort()
-      for i in range(10):
-        print('Out Subs: %s', messages[i])
+    self.verify(messages, DEFAULT_INPUT_NUMBERS)
 
     # Cancel streaming. (create a helper)
 
@@ -102,20 +101,8 @@ class StreamingWordCountIT(unittest.TestCase):
     test_utils.cleanup_topics([self.input_topic, self.output_topic])
 
   def tearDown(self):
-    self._cleanup_pubsub()
-
-  # def cleanup(self):
-  #   for topic in self.topics:
-  #     if topic.exists():
-  #       topic.delete()
-  #     else:
-  #       print('No clean up for topic %s' % topic.full_name)
-  #
-  #   for sub in self.subscriptions:
-  #     if sub.exists():
-  #       sub.delete()
-  #     else:
-  #       print('No clean up for subscription %s.' % sub.full_name)
+    pass
+    # self._cleanup_pubsub()
 
   def inject_numbers(self, topic, num_messages):
     """Inject numbers as test data to PubSub."""
@@ -124,25 +111,39 @@ class StreamingWordCountIT(unittest.TestCase):
     for n in range(num_messages):
       topic.publish(str(n))
 
-  def wait_for_message(self, subscription, expected_messages, max_wait_time=300):
-    logging.debug('Start wait for messages from sub %s', subscription)
+  def wait_for_message(self, subscription, expected_messages, timeout=300):
+    print('Start pulling messages from %s' % subscription.full_name)
+    logging.debug('Start pulling messages from %s', subscription.full_name)
     total_messages = []
     start_time = time.time()
-    while time.time() - start_time <= max_wait_time:
+    while time.time() - start_time <= timeout:
       pulled = subscription.pull(max_messages=50)
       for ack_id, message in pulled:
         total_messages.append(message.data)
         subscription.acknowledge([ack_id])
 
       if len(total_messages) >= expected_messages:
-        print('%d messages are recieved. Stop waiting.', len(total_messages))
+        print('%d messages are recieved. Stop waiting.' % len(total_messages))
         return total_messages
       if len(total_messages) % 10 == 0:
-        print('received %d messages.' % len(total_messages))
+        print('%d messages are received.' % len(total_messages))
 
-    raise RuntimeError('Timeout waiting for all messages appear from '
-                       'subscription %s after %d sec.' %
-                       (subscription, max_wait_time))
+    raise RuntimeError('Timeout after %d sec. Received %d messages from %s.' %
+                       (timeout, len(total_messages), subscription.full_name))
+
+  def verify(self, messages, expected_num):
+    self.assertEqual(len(messages), expected_num)
+
+    for i in range(10):
+      print('Out Subs: %s', messages[i])
+
+    expected_msg = []
+    for i in range(expected_num):
+      expected_msg.append('%d: 1' % i)
+
+    messages.sort()
+    expected_msg.sort()
+    self.assertListEqual(messages, expected_msg)
 
 
 if __name__ == '__main__':
