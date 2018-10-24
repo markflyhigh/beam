@@ -33,6 +33,9 @@ task postCommitIT {
   dependsOn ':beam-sdks-python:sdist'
 
   doLast {
+
+    println rootProject.name
+
     exec {
       executable 'sh'
       args '-c', ". ${envdir}/bin/activate && ../scripts/run_integration_test.sh"

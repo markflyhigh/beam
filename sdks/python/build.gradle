@@ -25,7 +25,10 @@ apply plugin: "base"
 task test {}
 check.dependsOn test
 
-def envdir = "${project.buildDir}/gradleenv"
+project.ext.envdir = "${project.buildDir}/gradleenv"
+subprojects {
+  project.ext.envdir = "${project.buildDir}/gradleenv"
+}
 
 def tox_opts = "-c tox.ini --recreate"
 
