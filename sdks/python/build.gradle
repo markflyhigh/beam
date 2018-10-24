@@ -26,6 +26,7 @@ task test {}
 check.dependsOn test
 
 def envdir = "${project.buildDir}/gradleenv"
+
 def tox_opts = "-c tox.ini --recreate"
 
 task setupVirtualenv {
@@ -41,7 +42,7 @@ task setupVirtualenv {
   // Gradle will delete outputs whenever it thinks they are stale. Putting a
   // specific binary here could make gradle delete it while pip will believe
   // the package is fully installed.
-  outputs.dirs(envdir)
+  outputs.dirs(project.ext.envdir)
 }
 
 configurations { distConfig }
@@ -210,18 +211,51 @@ task installGcpTest(dependsOn: 'setupVirtualenv') {
     }
   }
 }
+installGcpTest.mustRunAfter sdist
 
-task directRunnerIT(dependsOn: 'installGcpTest') {
+def base_test_opts = [
+        "--nologcapture",
+        "--nocapture",
+        "--processes=8",
+        "--process-timeout=4000",
+]
+
+def convertArgsToString = { argMap ->
+  def argList = []
+  argMap.each { k, v ->
+    if (v in List) {
+      v = "\"${v.join(' ')}\""
+    }
+    argList.add("--$k $v")
+  }
+}
+
+task directRunnerIT(dependsOn: ['installGcpTest', 'sdist']) {
+  def test_opts = base_test_opts + [
+          "--attr=IT",
+          "--nocapture",
+          "--tests=apache_beam.examples.wordcount_it_test:WordCountIT.test_wordcount_it," +
+                  "apache_beam.io.gcp.pubsub_integration_test:PubSubIntegrationTest",
+  ]
+  def argMap = [
+          "runner": "TestDirectRunner",
+          "test_opt": test_opts,
+  ]
+  // Run tests with TestDirectRunner in batch.
+  def batchCmdArgs = convertArgsToString argMap
   doLast {
     exec {
       executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_postcommit.sh IT batch TestDirectRunner"
+      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh $batchCmdArgs"
     }
   }
+  // Run tests with TestDirectRunner in streaming.
+  argMap["streaming"] = "true"
+  def streamingCmdArgs = convertArgsToString argMap
   doLast {
     exec {
       executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_postcommit.sh IT streaming TestDirectRunner"
+      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh $streamingCmdArgs"
     }
   }
 }
@@ -274,15 +308,10 @@ task portableWordCount(dependsOn: 'installGcpTest') {
 
 task integrationTest(dependsOn: ['installGcpTest', 'sdist']) {
   doLast {
-    def cmd_args = []
+    def argMap = [:]
 
     // Build test options that configures test environment and framework
-    def test_options = [
-            "--nocapture",
-            "--nologcapture",
-            "--processes=8",
-            "--process-timeout=3000",
-    ]
+    def test_options = base_test_opts
     if (project.hasProperty('testOptions'))
       // Customize test options by adding more nose flags to -Ptest_opt in commandline
       test_options = project.property('test_options')
@@ -290,33 +319,36 @@ task integrationTest(dependsOn: ['installGcpTest', 'sdist']) {
       test_options += ["--attr=${project.property('attr')}"]
     if (project.hasProperty('tests'))
       test_options += ["--tests=${project.property('tests')}"]
-    cmd_args += ["--test_opts \"${test_options.join(' ')}\""]
+
+    argMap["test_opts"] = test_options
 
     // Build pipeline options that configures pipeline job
     if (project.hasProperty('pipelineOptions'))
-      cmd_args += ["--pipeline_opts \"${project.property('pipelineOptions')}\""]
+      argMap["pipeline_opts"] = project.property('pipelineOptions')
 
+    def cmdArgs = mapArgToString argMap
     exec {
       executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh ${cmd_args.join(' ')}"
+      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh $cmdArgs"
     }
   }
 }
 
-task postCommitITTests(dependsOn: 'installGcpTest') {
-  doLast {
-    exec {
-      executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_postcommit.sh IT batch"
-    }
-  }
-}
+//task postCommitITTests(dependsOn: ['installGcpTest', 'sdist']) {
+//  doLast {
+//    def test_opts = base_test_opts + ["--attr=IT"]
+//    exec {
+//      executable 'sh'
+//      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh"
+//    }
+//  }
+//}
 
 task validatesRunnerBatchTests(dependsOn: 'installGcpTest') {
   doLast {
     exec {
       executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_postcommit.sh ValidatesRunner batch"
+      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh --test_opts --attr=ValidatesRunner"
     }
   }
 }
@@ -326,7 +358,7 @@ task validatesRunnerStreamingTests(dependsOn: 'installGcpTest') {
     exec {
       executable 'sh'
       // TODO(BEAM-3544,BEAM-5025): Disable tests with sickbay-streaming tag.
-      args '-c', ". ${envdir}/bin/activate && ./scripts/run_postcommit.sh ValidatesRunner,'!sickbay-streaming' streaming"
+      args '-c', ". ${envdir}/bin/activate && ./scripts/run_integration_test.sh --attr ValidatesRunner,'!sickbay-streaming' --streaming true"
     }
   }
 }
@@ -391,7 +423,7 @@ task postCommit() {
   dependsOn "preCommit"
   dependsOn "directRunnerIT"
   dependsOn "hdfsIntegrationTest"
-  dependsOn "postCommitITTests"
+  dependsOn ":postcommit:postCommitIT"
 }
 
 task dependencyUpdates(dependsOn: ':dependencyUpdates') {
