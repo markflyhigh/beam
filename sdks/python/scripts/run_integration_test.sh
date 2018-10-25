@@ -71,7 +71,7 @@ STREAMING=false
 
 # Default test (nose) options.
 # Default test sets are full integration tests.
-TEST_OPTS="--attr=IT --nologcapture --nocapture --processes=8 --process-timeout=4000"
+TEST_OPTS="--attr=IT --nocapture"
 
 while [[ $# -gt 0 ]]
 do

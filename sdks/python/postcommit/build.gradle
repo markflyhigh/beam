@@ -27,18 +27,4 @@ check.dependsOn test
 
 //def envdir =
 
-// Run postcommit integration tests with default runner (TestDataflowRunner)
-task postCommitIT {
-  dependsOn ':beam-sdks-python:installGcpTest'
-  dependsOn ':beam-sdks-python:sdist'
 
-  doLast {
-
-    println rootProject.name
-
-    exec {
-      executable 'sh'
-      args '-c', ". ${envdir}/bin/activate && ../scripts/run_integration_test.sh"
-    }
-  }
-}
