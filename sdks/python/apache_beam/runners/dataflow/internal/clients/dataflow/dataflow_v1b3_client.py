@@ -20,6 +20,8 @@
 
 from __future__ import absolute_import
 
+import sys
+
 from apitools.base.py import base_api
 
 from apache_beam.runners.dataflow.internal.clients.dataflow import dataflow_v1b3_messages as messages
@@ -45,7 +47,7 @@ class DataflowV1b3(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new dataflow handle."""
     url = url or self.BASE_URL
     super(DataflowV1b3, self).__init__(
@@ -54,7 +56,8 @@ class DataflowV1b3(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding or get_response_encoding())
     self.projects_jobs_debug = self.ProjectsJobsDebugService(self)
     self.projects_jobs_messages = self.ProjectsJobsMessagesService(self)
     self.projects_jobs_workItems = self.ProjectsJobsWorkItemsService(self)
@@ -941,3 +944,7 @@ class DataflowV1b3(base_api.BaseApiClient):
         response_type_name=u'SendWorkerMessagesResponse',
         supports_download=False,
     )
+
+def get_response_encoding():
+  """Determine whether to encode response content based on Python version."""
+  return None if sys.version_info[0] < 3 else 'utf8'
