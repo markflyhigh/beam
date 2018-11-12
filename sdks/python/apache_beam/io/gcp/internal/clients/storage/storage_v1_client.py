@@ -20,6 +20,8 @@
 
 from __future__ import absolute_import
 
+import sys
+
 from apitools.base.py import base_api
 
 from apache_beam.io.gcp.internal.clients.storage import \
