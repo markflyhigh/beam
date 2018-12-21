@@ -523,6 +523,10 @@ class DataflowApplicationClient(object):
   def create_job_description(self, job):
     """Creates a job described by the workflow proto."""
 
+    print('proto pipeline: ')
+    print(job.proto_pipeline)
+    # exit(1)
+
     # Stage the pipeline for the runner harness
     self.stage_file(job.google_cloud_options.staging_location,
                     shared_names.STAGED_PIPELINE_FILENAME,

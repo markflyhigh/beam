@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.apache.beam.model.pipeline.v1.Endpoints;
+import org.apache.beam.model.pipeline.v1.RunnerApi;
 import org.apache.beam.runners.dataflow.options.DataflowWorkerHarnessOptions;
 import org.apache.beam.runners.dataflow.worker.logging.DataflowWorkerLoggingMDC;
 import org.apache.beam.runners.dataflow.worker.testing.RestoreDataflowLoggingMDC;
@@ -49,37 +50,47 @@ public class DataflowWorkerHarnessHelperTest {
   private static final String JOB_ID = "2017-02-10_09_35_21-17008930546087200216";
   private static final String WORKER_ID = "worker_32132143_abcdef";
 
+  // @Test
+  // public void testLoggingConfiguration() throws Exception {
+  //   DataflowWorkerHarnessOptions pipelineOptions =
+  //       PipelineOptionsFactory.as(DataflowWorkerHarnessOptions.class);
+  //   pipelineOptions.setJobId(JOB_ID);
+  //   pipelineOptions.setWorkerId(WORKER_ID);
+  //   String serializedOptions = new ObjectMapper().writeValueAsString(pipelineOptions);
+  //   File file = tmpFolder.newFile();
+  //   Files.write(Paths.get(file.getPath()), serializedOptions.getBytes(StandardCharsets.UTF_8));
+  //   System.setProperty("sdk_pipeline_options_file", file.getPath());
+  //
+  //   DataflowWorkerHarnessOptions generatedOptions =
+  //       DataflowWorkerHarnessHelper.initializeGlobalStateAndPipelineOptions(
+  //           DataflowBatchWorkerHarnessTest.class);
+  //   // Assert that the returned options are correct.
+  //   assertThat(generatedOptions.getJobId(), equalTo(JOB_ID));
+  //   assertThat(generatedOptions.getWorkerId(), equalTo(WORKER_ID));
+  //
+  //   // Assert that the global logging configuration was properly initialized.
+  //   assertThat(DataflowWorkerLoggingMDC.getJobId(), equalTo(JOB_ID));
+  //   assertThat(DataflowWorkerLoggingMDC.getWorkerId(), equalTo(WORKER_ID));
+  // }
+  //
+  // @Test
+  // public void testParseDescriptor() throws TextFormat.ParseException {
+  //   Endpoints.ApiServiceDescriptor descriptor =
+  //       Endpoints.ApiServiceDescriptor.newBuilder().setUrl("some_test_url").build();
+  //   Endpoints.ApiServiceDescriptor decoded =
+  //       DataflowWorkerHarnessHelper.parseApiServiceDescriptorFromText(descriptor.toString());
+  //
+  //   assertThat(decoded, equalTo(descriptor));
+  //   assertThat(decoded.getUrl(), equalTo("some_test_url"));
+  // }
+
   @Test
-  public void testLoggingConfiguration() throws Exception {
-    DataflowWorkerHarnessOptions pipelineOptions =
-        PipelineOptionsFactory.as(DataflowWorkerHarnessOptions.class);
-    pipelineOptions.setJobId(JOB_ID);
-    pipelineOptions.setWorkerId(WORKER_ID);
-    String serializedOptions = new ObjectMapper().writeValueAsString(pipelineOptions);
-    File file = tmpFolder.newFile();
-    Files.write(Paths.get(file.getPath()), serializedOptions.getBytes(StandardCharsets.UTF_8));
-    System.setProperty("sdk_pipeline_options_file", file.getPath());
+  public void testGetPipelineFromEnv() throws  Exception {
+    // String path = "/usr/local/google/home/markliu/Downloads/pipeline.pb";
+    // String path = "/usr/local/google/home/markliu/tmp/py3_pipeline_proto/new.pb";
+    String path = "/usr/local/google/home/markliu/tmp/py3_pipeline_proto/pipeline-simplified_wordcount_py3.pb";
+    RunnerApi.Pipeline proto = DataflowWorkerHarnessHelper.getPipelineFromEnv(path);
 
-    DataflowWorkerHarnessOptions generatedOptions =
-        DataflowWorkerHarnessHelper.initializeGlobalStateAndPipelineOptions(
-            DataflowBatchWorkerHarnessTest.class);
-    // Assert that the returned options are correct.
-    assertThat(generatedOptions.getJobId(), equalTo(JOB_ID));
-    assertThat(generatedOptions.getWorkerId(), equalTo(WORKER_ID));
-
-    // Assert that the global logging configuration was properly initialized.
-    assertThat(DataflowWorkerLoggingMDC.getJobId(), equalTo(JOB_ID));
-    assertThat(DataflowWorkerLoggingMDC.getWorkerId(), equalTo(WORKER_ID));
-  }
-
-  @Test
-  public void testParseDescriptor() throws TextFormat.ParseException {
-    Endpoints.ApiServiceDescriptor descriptor =
-        Endpoints.ApiServiceDescriptor.newBuilder().setUrl("some_test_url").build();
-    Endpoints.ApiServiceDescriptor decoded =
-        DataflowWorkerHarnessHelper.parseApiServiceDescriptorFromText(descriptor.toString());
-
-    assertThat(decoded, equalTo(descriptor));
-    assertThat(decoded.getUrl(), equalTo("some_test_url"));
+    System.out.println(proto.toString());
   }
 }
