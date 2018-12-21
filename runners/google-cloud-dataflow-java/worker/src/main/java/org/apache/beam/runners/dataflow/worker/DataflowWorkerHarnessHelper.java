@@ -133,4 +133,23 @@ public final class DataflowWorkerHarnessHelper {
       return pipelineProto;
     }
   }
+
+  public static @Nullable RunnerApi.Pipeline getPipelineFromEnv(String pipelinePath) throws IOException {
+    if (pipelinePath == null) {
+      LOG.warn("Missing pipeline environment variable '%s'", PIPELINE_PATH);
+      return null;
+    }
+
+    File pipelineFile = new File(pipelinePath);
+    if (!pipelineFile.exists()) {
+      LOG.warn("Pipeline path '%s' does not exist", pipelineFile);
+      return null;
+    }
+
+    try (FileInputStream inputStream = new FileInputStream(pipelineFile)) {
+      RunnerApi.Pipeline pipelineProto = RunnerApi.Pipeline.parseFrom(inputStream);
+      LOG.info("Found portable pipeline:\n{}", TextFormat.printToString(pipelineProto));
+      return pipelineProto;
+    }
+  }
 }
