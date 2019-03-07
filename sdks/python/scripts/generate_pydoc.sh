@@ -74,7 +74,7 @@ excluded_patterns=(
     *_test_common.py
 )
 
-python $(type -p sphinx-apidoc) -fMeT -o target/docs/source apache_beam \
+sphinx-apidoc -fMeT -o target/docs/source apache_beam \
     "${excluded_patterns[@]}"
 
 # Create the configuration and index files
