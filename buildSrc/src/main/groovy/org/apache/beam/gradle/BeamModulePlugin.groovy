@@ -1617,10 +1617,10 @@ class BeamModulePlugin implements Plugin<Project> {
               include: ['model/**', 'sdks/python/**'],
               // Exclude temporary directories used in build and test.
               exclude: [
-                'sdks/python/build/**',
                 'sdks/python/dist/**',
                 'sdks/python/target/**',
                 'sdks/python/test-suites/**',
+                '**/build/**',
               ])
               )
       def copiedSrcRoot = "${project.buildDir}/srcs"
@@ -1640,7 +1640,7 @@ class BeamModulePlugin implements Plugin<Project> {
             executable 'sh'
             args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedSrcRoot}/sdks/python && python setup.py sdist --formats zip,gztar --dist-dir ${project.buildDir}"
           }
-          def collection = project.fileTree("${project.buildDir}"){ include '**/*.tar.gz' exclude '**/apache-beam.tar.gz'}
+          def collection = project.fileTree("${project.buildDir}"){ include '**/*.tar.gz' exclude '**/apache-beam.tar.gz', 'srcs/**'}
           println "sdist archive name: ${collection.singleFile}"
 
           // we need a fixed name for the artifact
