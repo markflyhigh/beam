@@ -1587,103 +1587,177 @@ class BeamModulePlugin implements Plugin<Project> {
 
       project.evaluationDependsOn(":beam-runners-google-cloud-dataflow-java-fn-api-worker")
 
+//      // Due to Beam-4256, we need to limit the length of virtualenv path to make the
+//      // virtualenv activated properly. So instead of include project name in the path,
+//      // we use the hash value.
+//      project.ext.envdir = "${project.rootProject.buildDir}/gradleenv/${project.name.hashCode()}"
+//      def pythonRootDir = "${project.rootDir}/sdks/python"
+
+//      // This is current supported Python3 version. It should match the one in
+//      // sdks/python/container/py3/Dockerfile
+//      final PYTHON3_VERSION = '3.5'
+
+//      project.task('setupVirtualenv')  {
+//        doLast {
+//          def virtualenvCmd = [
+//            'virtualenv',
+//            "${project.ext.envdir}",
+//          ]
+//          if (project.hasProperty('python3')) {
+//            virtualenvCmd += '--python=python' + PYTHON3_VERSION
+//          }
+//          project.exec { commandLine virtualenvCmd }
+//          project.exec {
+//            executable 'sh'
+//            args '-c', ". ${project.ext.envdir}/bin/activate && pip install --retries 10 --upgrade tox==3.0.0 grpcio-tools==1.3.5"
+//          }
+//        }
+//        // Gradle will delete outputs whenever it thinks they are stale. Putting a
+//        // specific binary here could make gradle delete it while pip will believe
+//        // the package is fully installed.
+//        outputs.dirs(project.ext.envdir)
+//      }
+
+//      def pythonSdkDeps = project.files(
+//              project.fileTree(
+//              dir: "${project.rootDir}",
+//              include: ['model/**', 'sdks/python/**'],
+//              // Exclude temporary directories used in build and test.
+//              exclude: [
+//                '**/build/**',
+//                '**/dist/**',
+//                '**/target/**',
+//                'sdks/python/test-suites/**',
+//              ])
+//              )
+//      def copiedSrcRoot = "${project.buildDir}/srcs"
+
+//      project.configurations { distConfig }
+
+//      project.task('sdist', dependsOn: 'setupVirtualenv') {
+//        doLast {
+//          // Copy sdk sources to an isolated directory
+//          project.copy {
+//            from pythonSdkDeps
+//            into copiedSrcRoot
+//          }
+//
+//          // Build artifact
+//          project.exec {
+//            executable 'sh'
+//            args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedSrcRoot}/sdks/python && python setup.py sdist --formats zip,gztar --dist-dir ${project.buildDir}"
+//          }
+//          def collection = project.fileTree("${project.buildDir}"){ include '**/*.tar.gz' exclude '**/apache-beam.tar.gz', 'srcs/**'}
+//          println "sdist archive name: ${collection.singleFile}"
+//
+//          // we need a fixed name for the artifact
+//          project.copy { from collection.singleFile; into "${project.buildDir}"; rename { 'apache-beam.tar.gz' } }
+//        }
+//      }
+//
+//      project.artifacts {
+//        distConfig file: project.file("${project.buildDir}/apache-beam.tar.gz"), builtBy: project.sdist
+//      }
+
+//      project.task('installGcpTest', dependsOn: 'setupVirtualenv') {
+//        doLast {
+//          project.exec {
+//            executable 'sh'
+//            args '-c', ". ${project.ext.envdir}/bin/activate && pip install --retries 10 -e ${pythonRootDir}/[gcp,test]"
+//          }
+//        }
+//      }
+//      project.installGcpTest.mustRunAfter project.sdist
+
+//      project.task('cleanPython') {
+//        doLast {
+//          def activate = "${project.ext.envdir}/bin/activate"
+//          project.exec {
+//            executable 'sh'
+//            args '-c', "if [ -e ${activate} ]; then " +
+//                    ". ${activate} && cd ${pythonRootDir} && python setup.py clean; " +
+//                    "fi"
+//          }
+//          project.delete project.buildDir     // Gradle build directory
+//          project.delete project.ext.envdir   // virtualenv directory
+//          project.delete "$project.projectDir/target"   // tox work directory
+//        }
+//      }
+//      project.clean.dependsOn project.cleanPython
+
+//      // Return a joined String from a Map that contains all commandline args of
+//      // IT test.
+//      project.ext.mapToArgString = { argMap ->
+//        def argList = []
+//        argMap.each { k, v ->
+//          if (v in List) {
+//            v = "\"${v.join(' ')}\""
+//          } else if (v in String && v.contains(' ')) {
+//            // We should use double quote around the arg value if it contains series
+//            // of flags joined with space. Otherwise, commandline parsing of the
+//            // shell script will be broken.
+//            v = "\"${v.replace('"', '')}\""
+//          }
+//          argList.add("--$k $v")
+//        }
+//        return argList.join(' ')
+//      }
+
+//      project.ext.toxTask = { name, tox_env ->
+//        project.tasks.create(name) {
+//          dependsOn = ['sdist']
+//          doLast {
+//            def copiedPyRoot = "${copiedSrcRoot}/sdks/python"
+//            project.exec {
+//              executable 'sh'
+//              args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedPyRoot} && scripts/run_tox.sh $tox_env ${project.buildDir}/apache-beam.tar.gz"
+//            }
+//          }
+//          inputs.files pythonSdkDeps
+//          outputs.files project.fileTree(dir: "${pythonRootDir}/target/.tox/${tox_env}/log/")
+//        }
+//      }
+
+      /****************************************************************************************/
+
+      /** Common-used Configs **/
       // Due to Beam-4256, we need to limit the length of virtualenv path to make the
       // virtualenv activated properly. So instead of include project name in the path,
       // we use the hash value.
       project.ext.envdir = "${project.rootProject.buildDir}/gradleenv/${project.name.hashCode()}"
-      def pythonRootDir = "${project.rootDir}/sdks/python"
 
       // This is current supported Python3 version. It should match the one in
       // sdks/python/container/py3/Dockerfile
       final PYTHON3_VERSION = '3.5'
 
-      project.task('setupVirtualenv')  {
-        doLast {
-          def virtualenvCmd = [
+      def pythonRootDir = "${project.rootDir}/sdks/python"
+
+
+      /** Helper functions **/
+      def checkPyVersionInstalled = {
+        return true
+      }
+
+      // TODO: Accept list of cmd string.
+      project.ext.execUnderVenv = { String cmds ->
+        project.logger.info("Executing command: $cmds ...")
+        project.exec {
+          executable 'sh'
+          args '-c', ". $project.envdir/bin/activate && " + cmds
+        }
+      }
+
+      project.ext.createVenv = { path, pyVersion = null ->
+        def virtualenvCmd = [
             'virtualenv',
-            "${project.ext.envdir}",
-          ]
-          if (project.hasProperty('python3')) {
-            virtualenvCmd += '--python=python' + PYTHON3_VERSION
-          }
-          project.exec { commandLine virtualenvCmd }
-          project.exec {
-            executable 'sh'
-            args '-c', ". ${project.ext.envdir}/bin/activate && pip install --retries 10 --upgrade tox==3.0.0 grpcio-tools==1.3.5"
-          }
+            "$path",
+        ]
+        if (pyVersion && checkPyVersionInstalled()) {
+          virtualenvCmd += '--python=python' + pyVersion
         }
-        // Gradle will delete outputs whenever it thinks they are stale. Putting a
-        // specific binary here could make gradle delete it while pip will believe
-        // the package is fully installed.
-        outputs.dirs(project.ext.envdir)
+        project.exec { commandLine virtualenvCmd }
+        project.execUnderVenv "pip install --retries 10 --upgrade tox==3.0.0 grpcio-tools==1.3.5"
       }
-
-      def pythonSdkDeps = project.files(
-              project.fileTree(
-              dir: "${project.rootDir}",
-              include: ['model/**', 'sdks/python/**'],
-              // Exclude temporary directories used in build and test.
-              exclude: [
-                '**/build/**',
-                '**/dist/**',
-                '**/target/**',
-                'sdks/python/test-suites/**',
-              ])
-              )
-      def copiedSrcRoot = "${project.buildDir}/srcs"
-
-      project.configurations { distConfig }
-
-      project.task('sdist', dependsOn: 'setupVirtualenv') {
-        doLast {
-          // Copy sdk sources to an isolated directory
-          project.copy {
-            from pythonSdkDeps
-            into copiedSrcRoot
-          }
-
-          // Build artifact
-          project.exec {
-            executable 'sh'
-            args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedSrcRoot}/sdks/python && python setup.py sdist --formats zip,gztar --dist-dir ${project.buildDir}"
-          }
-          def collection = project.fileTree("${project.buildDir}"){ include '**/*.tar.gz' exclude '**/apache-beam.tar.gz', 'srcs/**'}
-          println "sdist archive name: ${collection.singleFile}"
-
-          // we need a fixed name for the artifact
-          project.copy { from collection.singleFile; into "${project.buildDir}"; rename { 'apache-beam.tar.gz' } }
-        }
-      }
-
-      project.artifacts {
-        distConfig file: project.file("${project.buildDir}/apache-beam.tar.gz"), builtBy: project.sdist
-      }
-
-      project.task('installGcpTest', dependsOn: 'setupVirtualenv') {
-        doLast {
-          project.exec {
-            executable 'sh'
-            args '-c', ". ${project.ext.envdir}/bin/activate && pip install --retries 10 -e ${pythonRootDir}/[gcp,test]"
-          }
-        }
-      }
-      project.installGcpTest.mustRunAfter project.sdist
-
-      project.task('cleanPython') {
-        doLast {
-          def activate = "${project.ext.envdir}/bin/activate"
-          project.exec {
-            executable 'sh'
-            args '-c', "if [ -e ${activate} ]; then " +
-                    ". ${activate} && cd ${pythonRootDir} && python setup.py clean; " +
-                    "fi"
-          }
-          project.delete project.buildDir     // Gradle build directory
-          project.delete project.ext.envdir   // virtualenv directory
-          project.delete "$project.projectDir/target"   // tox work directory
-        }
-      }
-      project.clean.dependsOn project.cleanPython
 
       // Return a joined String from a Map that contains all commandline args of
       // IT test.
@@ -1703,19 +1777,77 @@ class BeamModulePlugin implements Plugin<Project> {
         return argList.join(' ')
       }
 
-      project.ext.toxTask = { name, tox_env ->
-        project.tasks.create(name) {
-          dependsOn = ['sdist']
-          doLast {
-            def copiedPyRoot = "${copiedSrcRoot}/sdks/python"
-            project.exec {
-              executable 'sh'
-              args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedPyRoot} && scripts/run_tox.sh $tox_env ${project.buildDir}/apache-beam.tar.gz"
-            }
-          }
-          inputs.files pythonSdkDeps
-          outputs.files project.fileTree(dir: "${pythonRootDir}/target/.tox/${tox_env}/log/")
+
+      /** New basic tasks **/
+      project.task('setupVirtualenv') {
+        def py3Version = project.hasProperty('python3') ? PYTHON3_VERSION : null
+        doLast {
+          project.createVenv project.envdir, py3Version
         }
+      }
+
+      project.task('installGcpTest') {
+        dependsOn 'setupVirtualenv'
+
+        doLast {
+          project.execUnderVenv "pip install --retries 10 -e ${pythonRootDir}/[gcp,test]"
+        }
+      }
+      project.installGcpTest.mustRunAfter project.setupVirtualenv
+
+      project.task('cleanPython') {
+        doLast {
+          if ( new File(project.envdir).exists()) {
+            project.execUnderVenv "cd ${pythonRootDir} && python setup.py clean"
+          }
+
+          project.delete project.buildDir     // Gradle build directory
+          project.delete project.envdir   // virtualenv directory
+          project.delete "$project.projectDir/target"   // tox work directory
+        }
+      }
+      project.clean.dependsOn project.cleanPython
+    }
+
+    def pythonSdkDeps = project.files(
+        project.fileTree(
+            dir: "${project.rootDir}",
+            include: ['model/**', 'sdks/python/**'],
+            // Exclude temporary directories used in build and test.
+            exclude: [
+                '**/build/**',
+                '**/dist/**',
+                '**/target/**',
+                'sdks/python/test-suites/**',
+            ])
+    )
+    def copiedSrcRoot = "${project.buildDir}/srcs"
+
+    project.task('copySdkSources') {
+      doLast {
+        // Copy sdk sources to an isolated directory
+        project.copy {
+          from pythonSdkDeps
+          into copiedSrcRoot
+        }
+      }
+    }
+
+    project.ext.toxTask = { name, tox_env ->
+      project.tasks.create(name) {
+        dependsOn = [
+            ":beam-sdks-python:sdist",
+            "setupVirtualenv",
+            "copySdkSources",
+        ]
+
+        def pythonRootDir = "${project.rootDir}/sdks/python"
+        doLast {
+          def copiedPyRoot = "${copiedSrcRoot}/sdks/python"
+          project.execUnderVenv "cd ${copiedPyRoot} && scripts/run_tox.sh $tox_env $pythonRootDir/target/apache-beam.tar.gz"
+        }
+        inputs.files pythonSdkDeps
+        outputs.files project.fileTree(dir: "${pythonRootDir}/target/.tox/${tox_env}/log/")
       }
     }
   }
