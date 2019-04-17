@@ -238,7 +238,6 @@ class CommonJobProperties {
       bigquery_table: 'beam_performance.pkb_results',
       k8s_get_retry_count: 36, // wait up to 6 minutes for K8s LoadBalancer
       k8s_get_wait_interval: 10,
-      python_binary: '$WORKSPACE/.beam_env/bin/python',
       temp_dir: '$WORKSPACE',
       // Use source cloned by Jenkins and not clone it second time (redundantly).
       beam_location: '$WORKSPACE/src',
@@ -281,29 +280,26 @@ class CommonJobProperties {
   static def buildPerformanceTest(def context, def argMap) {
     def pkbArgs = genPerformanceArgs(argMap)
 
-    // Absolute path of project root and virtualenv path of Beam and Perfkit.
+    // Absolute path of Perfkit root.
     def perfkit_root = makePathAbsolute("PerfKitBenchmarker")
-    def perfkit_env = makePathAbsolute("env/.perfkit_env")
 
     context.steps {
-        // Clean up environment.
-        shell("rm -rf ${perfkit_root}")
-        shell("rm -rf ${perfkit_env}")
+      // Cleanup and clone master of PerfkitBenchmarker
+      shell("rm -rf ${perfkit_root}")
+      shell("git clone https://github.com/GoogleCloudPlatform/PerfKitBenchmarker.git ${perfkit_root}")
 
-        // create new VirtualEnv
-        shell("virtualenv ${perfkit_env}")
-
-        // update setuptools and pip
-        shell("${perfkit_env}/bin/pip install --upgrade setuptools pip")
-
-        // Clone appropriate perfkit branch
-        shell("git clone https://github.com/GoogleCloudPlatform/PerfKitBenchmarker.git ${perfkit_root}")
-
-        // Install Perfkit benchmark requirements.
-        shell("${perfkit_env}/bin/pip install -r ${perfkit_root}/requirements.txt")
-
-        // Launch performance test.
-        shell("${perfkit_env}/bin/python ${perfkit_root}/pkb.py ${pkbArgs}")
+      virtualenv {
+        // Name of the virtualenv
+        name('perfkit-virtualenv')
+        // Set python version
+        pythonName('python2.7')
+        // Install required dependency
+        command("pip install -r ${perfkit_root}/requirements.txt")
+        // Launch performance test
+        command("python ${perfkit_root}/pkb.py ${pkbArgs}")
+        // virtualenv is deleted and recreated on each build
+        clear()
+      }
     }
   }
 
