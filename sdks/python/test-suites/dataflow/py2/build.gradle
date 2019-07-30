@@ -29,7 +29,7 @@ def basicTestOpts = [
     "--process-timeout=4500", // timeout of whole command execution
 ]
 
-task preCommitIT(dependsOn: ['sdist', 'installGcpTest']) {
+task preCommitIT(dependsOn: [':sdks:python:sdist', 'installGcpTest']) {
   dependsOn ":runners:google-cloud-dataflow-java:worker:shadowJar"
 
   def dataflowWorkerJar = project(":runners:google-cloud-dataflow-java:worker").shadowJar.archivePath
@@ -61,7 +61,7 @@ task preCommitIT(dependsOn: ['sdist', 'installGcpTest']) {
 }
 
 // Run PostCommit integration tests on default runner (TestDataflowRunner)
-task postCommitIT(dependsOn: ['installGcpTest', 'sdist']) {
+task postCommitIT(dependsOn: ['installGcpTest', ':sdks:python:sdist']) {
   dependsOn ":runners:google-cloud-dataflow-java:worker:shadowJar"
 
   def dataflowWorkerJar = project(":runners:google-cloud-dataflow-java:worker").shadowJar.archivePath
@@ -78,7 +78,7 @@ task postCommitIT(dependsOn: ['installGcpTest', 'sdist']) {
   }
 }
 
-task validatesRunnerBatchTests(dependsOn: ['installGcpTest', 'sdist']) {
+task validatesRunnerBatchTests(dependsOn: ['installGcpTest', ':sdks:python:sdist']) {
   dependsOn ":runners:google-cloud-dataflow-java:worker:shadowJar"
 
   def dataflowWorkerJar = project(":runners:google-cloud-dataflow-java:worker").shadowJar.archivePath
@@ -95,7 +95,7 @@ task validatesRunnerBatchTests(dependsOn: ['installGcpTest', 'sdist']) {
   }
 }
 
-task validatesRunnerStreamingTests(dependsOn: ['installGcpTest', 'sdist']) {
+task validatesRunnerStreamingTests(dependsOn: ['installGcpTest', ':sdks:python:sdist']) {
   dependsOn ":runners:google-cloud-dataflow-java:worker:shadowJar"
 
   def dataflowWorkerJar = project(":runners:google-cloud-dataflow-java:worker").shadowJar.archivePath

@@ -1731,7 +1731,7 @@ class BeamModulePlugin implements Plugin<Project> {
         outputs.dirs(project.ext.envdir)
       }
 
-      def pythonSdkDeps = project.files(
+      project.ext.pythonSdkDeps = project.files(
               project.fileTree(
               dir: "${project.rootDir}",
               include: ['model/**', 'sdks/python/**'],
@@ -1746,34 +1746,6 @@ class BeamModulePlugin implements Plugin<Project> {
       def copiedSrcRoot = "${project.buildDir}/srcs"
       def tarball = "apache-beam.tar.gz"
 
-      project.configurations { distConfig }
-
-      project.task('sdist', dependsOn: 'setupVirtualenv') {
-        doLast {
-          // Copy sdk sources to an isolated directory
-          project.copy {
-            from pythonSdkDeps
-            into copiedSrcRoot
-          }
-
-          // Build artifact
-          project.exec {
-            executable 'sh'
-            args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedSrcRoot}/sdks/python && python setup.py -q sdist --formats zip,gztar --dist-dir ${project.buildDir}"
-          }
-          def collection = project.fileTree("${project.buildDir}"){ include '**/*.tar.gz' exclude '**/apache-beam.tar.gz', 'srcs/**'}
-
-          // we need a fixed name for the artifact
-          project.copy { from collection.singleFile; into "${project.buildDir}"; rename { tarball } }
-        }
-        inputs.files pythonSdkDeps
-        outputs.file "${project.buildDir}/${tarball}"
-      }
-
-      project.artifacts {
-        distConfig file: project.file("${project.buildDir}/${tarball}"), builtBy: project.sdist
-      }
-
       project.task('installGcpTest', dependsOn: 'setupVirtualenv') {
         doLast {
           project.exec {
@@ -1782,7 +1754,6 @@ class BeamModulePlugin implements Plugin<Project> {
           }
         }
       }
-      project.installGcpTest.mustRunAfter project.sdist
 
       project.task('cleanPython') {
         doLast {
@@ -1820,15 +1791,25 @@ class BeamModulePlugin implements Plugin<Project> {
 
       project.ext.toxTask = { name, tox_env ->
         project.tasks.create(name) {
-          dependsOn = ['sdist']
+          dependsOn ':sdks:python:sdist'
+          dependsOn 'setupVirtualenv'
+
           doLast {
-            def copiedPyRoot = "${copiedSrcRoot}/sdks/python"
+            // Copy sdk sources to an isolated directory
+            def copiedBeamRoot = "${project.buildDir}/srcs"
+            project.copy {
+              from project.pythonSdkDeps
+              into copiedBeamRoot
+            }
+
+            // Run tox tests
+            def copiedPyRoot = "${copiedBeamRoot}/sdks/python"
             project.exec {
               executable 'sh'
-              args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedPyRoot} && scripts/run_tox.sh $tox_env ${project.buildDir}/apache-beam.tar.gz"
+              args '-c', ". ${project.ext.envdir}/bin/activate && cd ${copiedPyRoot} && scripts/run_tox.sh $tox_env ${pythonRootDir}/build/apache-beam.tar.gz"
             }
           }
-          inputs.files pythonSdkDeps
+          inputs.files project.pythonSdkDeps
           outputs.files project.fileTree(dir: "${pythonRootDir}/target/.tox/${tox_env}/log/")
         }
       }
@@ -1842,7 +1823,7 @@ class BeamModulePlugin implements Plugin<Project> {
 
         project.task('integrationTest') {
           dependsOn 'installGcpTest'
-          dependsOn 'sdist'
+          dependsOn ':sdks:python:sdist'
 
           doLast {
             def argMap = [:]
